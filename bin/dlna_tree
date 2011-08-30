@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+require 'pp'
+require 'nokogiri'
+require 'UPnP/control/device/media_server'
+
+def find(device)
+  root_info = device.get_root
+  root_xml = Nokogiri::XML(root_info[0])
+  root_xml.xpath("//default:container", 
+                 {'default' => 'urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/'}
+                 ).each do |container|
+    puts container["id"]
+    device.get_container(container["id"])
+  end
+end
+
+def tree(device, id, space = '')
+  container = device.get_container(id)
+#pp container
+  container_xml = Nokogiri::XML(container[0])
+# container
+  container_xml.xpath("//default:container|//default:item", 
+                 {'default' => 'urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/'}
+                 ).each do |e|
+    print space, "+- "
+    print e.child.text, "(", File.basename(e["id"]),")"
+    print ((e.name == "container")? '/':''), "\n"
+    if e.name == "item"
+      pp e
+    end
+    if e.name == "container"
+      tree(device, e["id"], space + "| ")
+    end
+  end
+end
+
+sss = UPnP::Control::Device::MediaServer.search 
+
+pp sss
+if sss.empty? then
+  puts 'No MediaServer found'
+else
+  sss.each do |s|
+    tree(s, "0")
+  end
+end
